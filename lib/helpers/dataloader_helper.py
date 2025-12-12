@@ -1,7 +1,8 @@
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
-from lib.datasets.kitti.kitti_dataset import KITTI_Dataset
+# from lib.datasets.kitti.kitti_dataset import KITTI_Dataset
+from lib.datasets.kitti.ai2_kitti_dataset import AI2THOR_KITTI_Dataset as KITTI_Dataset
 
 from torch.utils.data import DistributedSampler as _DistributedSampler
 from lib.helpers import utils_helper

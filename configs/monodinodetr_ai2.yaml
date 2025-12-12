@@ -1,0 +1,223 @@
+# Configuration for MonoDINO-DETR on AI2-THOR-KITTI dataset
+
+random_seed: 444
+
+dataset:
+  type: &dataset_type 'KITTI'
+  root_dir: '/home/hice1/rrustagi7/scratch/ai2_kitti' # <<< IMPORTANT: Points to your CONVERTED dataset
+  train_split: 'train' # Assumes train.txt exists in root_dir/ImageSets/
+  val_split: 'val'     # Assumes val.txt exists in root_dir/ImageSets/ (for validation during training)
+  test_split: 'val'    # Assumes val.txt exists in root_dir/ImageSets/ (for testing/evaluation)
+  batch_size: 8         # Increased: 8 per GPU (adjust based on memory)
+  num_workers: 8        # Increased: Number of data loading threads (adjust based on CPU cores/IO)
+  use_3d_center: True
+  class_merging: False
+  use_dontcare: False
+  bbox2d_type: 'anno'  # 'proj' or 'anno'
+  meanshape: False  # use predefined anchor or not
+  # --- Class Configuration (CRITICAL) ---
+  # List ALL object classes from your analysis_kitti_dataset.py output (excluding DontCare)
+  # Example subset - REPLACE WITH YOUR FULL LIST (~109 classes)
+  class_names: &class_names [
+      'AlarmClock', 'Apple', 'ArmChair', 'BaseballBat', 'BasketBall', 'Bathtub', 'BathtubBasin', 'Bed', 'Book',
+      'Boots', 'Bottle', 'Bowl', 'Box', 'Bread', 'ButterKnife', 'Cabinet', 'Candle', 'CellPhone', 'Chair',
+      'Cloth', 'CoffeeMachine', 'CoffeeTable', 'CreditCard', 'Cup', 'Desk', 'DeskLamp', 'Desktop', 'DiningTable',
+      'DishSponge', 'DogBed', 'Drawer', 'Dresser', 'Dumbbell', 'Egg', 'Faucet', 'FloorLamp', 'Footstool', 'Fork',
+      'Fridge', 'GarbageBag', 'GarbageCan', 'HandTowel', 'HandTowelHolder', 'HousePlant', 'Kettle', 'KeyChain',
+      'Knife', 'Ladle', 'Laptop', 'LaundryHamper', 'Lettuce', 'Microwave', 'Mirror', 'Mug', 'Newspaper',
+      'Ottoman', 'Painting', 'Pan', 'PaperTowelRoll', 'Pen', 'Pencil', 'PepperShaker', 'Pillow', 'Plate',
+      'Plunger', 'Poster', 'Pot', 'Potato', 'RemoteControl', 'RoomDecor', 'Safe', 'SaltShaker', 'ScrubBrush',
+      'Shelf', 'ShelvingUnit', 'ShowerCurtain', 'ShowerDoor', 'ShowerGlass', 'ShowerHead', 'SideTable', 'Sink',
+      'SinkBasin', 'SoapBar', 'SoapBottle', 'Sofa', 'Spatula', 'Spoon', 'SprayBottle', 'Statue', 'Stool',
+      'StoveBurner', 'StoveKnob', 'TVStand', 'TableTopDecor', 'TeddyBear', 'Television', 'TennisRacket',
+      'TissueBox', 'Toaster', 'Toilet', 'ToiletPaper', 'ToiletPaperHanger', 'Tomato', 'Towel', 'TowelHolder',
+      'Vase', 'Watch', 'WateringCan', 'WineBottle'
+    ]
+  # 'writelist' should match class_names unless you specifically want the loader to ignore some classes found in files
+  writelist: *class_names
+  use_dontcare: True # Process 'DontCare' lines in labels, typically filtered later if needed
+
+  # --- Input/Output Sizes (CRITICAL) ---
+  input_resolution: [1280, 384] # Model input resolution (W, H) - Back to full res with H200
+  output_downsample: 4         # Backbone downsampling factor (e.g., 4 for ~1/4 res features, common for DETR)
+                               # Heatmap/output feature map size will be input_res / downsample
+
+  # --- Mean Shape (RECOMMENDED) ---
+  meanshape: True # Enable mean shape subtraction for potentially better regression
+  # <<< IMPORTANT: Populate this dict with YOUR calculated average [h, w, l] from analyze_kitti_dataset.py >>>
+  class_mean_sizes: {
+    'AlarmClock': [0.189, 0.161, 0.176], 'Apple': [0.116, 0.117, 0.120], 'ArmChair': [0.921, 0.999, 0.944],
+    'BaseballBat': [0.872, 0.248, 0.194], 'BasketBall': [0.240, 0.240, 0.240], 'Bathtub': [0.591, 1.490, 1.678],
+    'BathtubBasin': [0.411, 0.864, 1.301], 'Bed': [1.046, 1.708, 1.935], 'Book': [0.032, 0.308, 0.319],
+    'Boots': [0.520, 0.290, 0.300], 'Bottle': [0.250, 0.110, 0.110], 'Bowl': [0.093, 0.198, 0.199],
+    'Box': [0.306, 0.476, 0.441], 'Bread': [0.148, 0.203, 0.278], 'ButterKnife': [0.010, 0.178, 0.198],
+    'Cabinet': [0.678, 0.420, 0.444], 'Candle': [0.118, 0.046, 0.046], 'CellPhone': [0.010, 0.151, 0.181],
+    'Chair': [0.954, 0.589, 0.594], 'Cloth': [0.044, 0.212, 0.182], 'CoffeeMachine': [0.434, 0.427, 0.443],
+    'CoffeeTable': [0.470, 0.993, 1.043], 'CreditCard': [0.010, 0.095, 0.078], 'Cup': [0.149, 0.110, 0.108],
+    'Desk': [1.130, 1.358, 1.158], 'DeskLamp': [0.456, 0.300, 0.296], 'Desktop': [0.570, 0.680, 0.630],
+    'DiningTable': [0.780, 1.048, 1.303], 'DishSponge': [0.030, 0.107, 0.139], 'DogBed': [0.307, 0.974, 0.824],
+    'Drawer': [0.200, 0.455, 0.493], 'Dresser': [1.012, 0.868, 1.025], 'Dumbbell': [0.130, 0.174, 0.328],
+    'Egg': [0.068, 0.071, 0.063], 'Faucet': [0.267, 0.291, 0.280], 'FloorLamp': [1.907, 0.484, 0.501],
+    'Footstool': [0.274, 0.280, 0.280], 'Fork': [0.022, 0.050, 0.249], 'Fridge': [1.861, 0.809, 0.942],
+    'GarbageBag': [0.560, 0.508, 0.512], 'GarbageCan': [0.535, 0.425, 0.395], 'HandTowel': [0.400, 0.089, 0.081],
+    'HandTowelHolder': [0.210, 0.102, 0.118], 'HousePlant': [0.693, 0.365, 0.357], 'Kettle': [0.194, 0.202, 0.213],
+    'KeyChain': [0.015, 0.127, 0.069], 'Knife': [0.011, 0.254, 0.211], 'Ladle': [0.061, 0.148, 0.227],
+    'Laptop': [0.313, 0.469, 0.428], 'LaundryHamper': [0.771, 0.520, 0.516], 'Lettuce': [0.169, 0.202, 0.210],
+    'Microwave': [0.364, 0.509, 0.517], 'Mirror': [0.841, 0.464, 0.755], 'Mug': [0.101, 0.117, 0.100],
+    'Newspaper': [0.037, 0.360, 0.226], 'Ottoman': [0.422, 0.857, 0.523], 'Painting': [0.749, 0.495, 0.557],
+    'Pan': [0.052, 0.290, 0.352], 'PaperTowelRoll': [0.211, 0.080, 0.064], 'Pen': [0.010, 0.042, 0.193],
+    'Pencil': [0.010, 0.028, 0.179], 'PepperShaker': [0.125, 0.070, 0.070], 'Pillow': [0.156, 0.439, 0.402],
+    'Plate': [0.023, 0.239, 0.240], 'Plunger': [0.540, 0.152, 0.152], 'Poster': [0.784, 0.171, 0.693],
+    'Pot': [0.171, 0.317, 0.354], 'Potato': [0.078, 0.108, 0.119], 'RemoteControl': [0.020, 0.098, 0.206],
+    'RoomDecor': [1.230, 0.280, 0.340], 'Safe': [0.510, 0.531, 0.530], 'SaltShaker': [0.124, 0.070, 0.070],
+    'ScrubBrush': [0.480, 0.135, 0.135], 'Shelf': [0.279, 0.691, 0.506], 'ShelvingUnit': [1.317, 0.985, 0.540],
+    'ShowerCurtain': [1.744, 0.336, 0.377], 'ShowerDoor': [1.911, 0.244, 0.754], 'ShowerGlass': [1.822, 1.215, 1.522],
+    'ShowerHead': [1.465, 0.240, 0.250], 'SideTable': [0.729, 0.760, 0.602], 'Sink': [0.308, 0.613, 0.627],
+    'SinkBasin': [0.137, 0.459, 0.449], 'SoapBar': [0.020, 0.086, 0.105], 'SoapBottle': [0.234, 0.109, 0.116],
+    'Sofa': [1.019, 2.000, 1.653], 'Spatula': [0.030, 0.207, 0.190], 'Spoon': [0.020, 0.088, 0.190],
+    'SprayBottle': [0.250, 0.100, 0.056], 'Statue': [0.393, 0.198, 0.180], 'Stool': [0.713, 0.493, 0.527],
+    'StoveBurner': [0.026, 0.232, 0.230], 'StoveKnob': [0.066, 0.070, 0.063], 'TVStand': [0.673, 0.731, 1.128],
+    'TableTopDecor': [0.140, 0.400, 0.310], 'TeddyBear': [0.434, 0.396, 0.407], 'Television': [0.771, 0.538, 0.920],
+    'TennisRacket': [0.508, 0.331, 0.326], 'TissueBox': [0.150, 0.198, 0.123], 'Toaster': [0.228, 0.296, 0.309],
+    'Toilet': [1.040, 0.789, 0.711], 'ToiletPaper': [0.119, 0.075, 0.073], 'ToiletPaperHanger': [0.101, 0.186, 0.163],
+    'Tomato': [0.106, 0.126, 0.129], 'Towel': [0.596, 0.226, 0.257], 'TowelHolder': [0.040, 0.363, 0.398],
+    'Vase': [0.202, 0.171, 0.170], 'Watch': [0.040, 0.076, 0.054], 'WateringCan': [0.190, 0.169, 0.247],
+    'WineBottle': [0.330, 0.090, 0.090],
+    # Add ALL your classes here
+   }
+
+  # --- Other Dataset Settings ---
+  use_3d_center: True
+  # class_merging: False # Not relevant for AI2THOR classes
+  bbox2d_type: 'anno'
+  clip_2d: True # Recommended: Clip augmented 2D boxes to image boundaries
+
+  # --- Augmentation ---
+  aug_pd: True     # Photometric distortions
+  aug_crop: True     # Random crop/scale/shift
+  aug_calib: False   # Keep False for synthetic data
+
+  random_flip: 0.5
+  random_crop: 0.5   # Probability of applying crop aug
+  scale: 0.2       # Increased scale variation (e.g., +/- 20%)
+  shift: 0.1       # Increased shift variation (e.g., +/- 10%)
+
+  depth_scale: 'normal' # Correct interaction with scale augmentation
+
+
+model_name: 'monodinodetr' # Renamed for clarity
+model:
+  num_classes: 109 # <<< TEMPORARILY REDUCED to test if class count is causing issues
+  return_intermediate_dec: True
+  device: 'cuda'
+
+  # --- Backbone ---
+  # Ensure your codebase correctly loads DINO weights for 'vitl'
+  # Or use a specific identifier if required (e.g., 'dinov3_vitl16')
+  backbone: 'vitl'
+  # checkpoint: '/path/to/your/dinov3_vitl_pretrain.pth' # Optional: Specify explicit DINO weights path if needed
+  train_backbone: True # Fine-tune the backbone on the indoor data
+  num_feature_levels: 3
+  dilation: False
+  position_embedding: 'sine'
+  masks: False # Typically False for object detection
+
+  # --- Depth Predictor ---
+  depth_predict_with_anything: True # Assuming using DepthAnything approach
+  depth_predict_encoder: 'vitl'     # Match backbone size if required by implementation
+  mode: LID
+  num_depth_bins: 80
+  depth_min: 1e-3
+  depth_max: 10.0 # Reduced: Max depth relevant for indoor scenes (adjust if needed)
+
+  # --- Transformer ---
+  with_box_refine: True
+  two_stage: False
+  use_dab: True # Use DAB-DETR anchor boxes
+  use_dn: False # Temporarily disabled DN to debug OOM issue
+  two_stage_dino: False # Specific DN variant control
+  init_box: True # Recommended with DAB/DN
+  enc_layers: 6 # Increased depth
+  dec_layers: 6 # Increased depth
+  hidden_dim: 256
+  dim_feedforward: 2048 # Increased FFN dimension (adjust based on memory)
+  dropout: 0.1
+  nheads: 8
+  num_queries: 50 # Must be multiple of 50 for this architecture! (50, 100, 150, 200, 250, 300)
+  enc_n_points: 4
+  dec_n_points: 4
+
+  # --- DN (Denoising) Configuration (if use_dn: True) ---
+  scalar: 2 # Very small for 109 classes (note: trainer uses scalar*11 internally!)
+  label_noise_scale: 0.2 # Or 0.5? Tune based on convergence
+  box_noise_scale: 0.4 # Or 1.0? Tune based on convergence
+  num_patterns: 0 # Standard for DN
+
+  # --- Loss ---
+  aux_loss: True # Use intermediate decoder layer losses
+
+  # --- Loss Coefficients ---
+  # Keep defaults initially, tune based on performance bottlenecks
+  cls_loss_coef: 2.0
+  focal_alpha: 0.25 # Standard for Focal Loss
+
+  bbox_loss_coef: 5.0 # L1 loss
+  giou_loss_coef: 2.0 # GIoU loss
+
+  # 3D specific losses
+  # Re-enabled with reduced coefficients for stability
+  depth_loss_coef: 0.5 # Reduced from 1.0 for stability
+  3dcenter_loss_coef: 10.0 # Weight for projected 3D center offset
+  dim_loss_coef: 0.5 # Reduced from 1.0 for stability
+  angle_loss_coef: 0.5 # Reduced from 1.0 for stability
+  depth_map_loss_coef: 0.5 # Reduced from 1.0 for stability
+
+  # --- Matcher ---
+  # Keep defaults initially
+  set_cost_class: 2.0
+  set_cost_bbox: 5.0
+  set_cost_giou: 2.0
+  set_cost_3dcenter: 10.0
+
+
+optimizer:
+  type: 'adamw'
+  lr: 0.000005 # Very small LR for 109 classes (was 0.00002)
+  weight_decay: 0.0001
+  # Add backbone specific LR multiplier if needed (common for fine-tuning)
+  # lr_backbone: 0.00001
+
+
+lr_scheduler:
+  type: 'step' # Or 'cosine'
+  warmup: True # Enable warmup (important for stability)
+  warmup_epochs: 10 # Longer warmup for stability
+  warmup_init_lr: 0.0000001 # Extremely small warmup LR (1e-7)
+  decay_rate: 0.1
+  decay_list: [100, 150] # Adjusted decay steps for 195 epochs
+
+
+trainer:
+  max_epoch: 195 # Keep or adjust based on convergence
+  gpu_ids: '0,1,2,3' # Make sure this matches your hardware
+  batch_size_per_gpu: 8 # H200 has 128GB, should handle this with DN disabled
+  save_frequency: 1 # Reduced frequency to save disk space
+  # resume_model: False # Set to True and specify path if resuming
+  # pretrain_model: null # Path to load weights from (e.g., DINO backbone only, or full model)
+  save_path: 'outputs/monodinodetr_run2/' # Specific output path
+  save_all: False # Save only best and latest checkpoints
+  # DN parameters (must match model section if DN is enabled)
+  use_dn: False # Temporarily disabled to debug OOM
+  scalar: 2 # Must match model.scalar
+  label_noise_scale: 0.2
+  box_noise_scale: 0.4
+  num_patterns: 0
+  contrastive: False
+
+tester:
+  type: *dataset_type # Match dataset type
+  mode: 'single'
+  checkpoint: 'best' # Use 'best' for best checkpoint, or epoch number like 10, 20, etc.
+  threshold: 0.2 # Confidence threshold for evaluation
+  topk: 50 # Match num_queries
+  use_dn: False # Match model setting

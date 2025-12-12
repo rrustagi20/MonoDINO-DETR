@@ -173,7 +173,7 @@ class BackboneViT(nn.Module):
         # Initialize DepthAnythingV2 with DINOv2 backbone
         if name in depthanything_model_configs:
             depth_anything = DepthAnythingV2(**depthanything_model_configs[name])
-            model_weights_path = f'/home/usrg/MonoDINO-DETR/checkpoints/depth_anything_v2_{name}.pth'  # Update with your path
+            model_weights_path = f'/home/hice1/rrustagi7/scratch/glen/MonoDINO-DETR/checkpoints/depth_anything_v2_{name}.pth'
 
             # Load pre-trained weights
             depth_anything.load_state_dict(torch.load(model_weights_path, map_location='cpu'))

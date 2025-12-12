@@ -11,8 +11,26 @@ dataset:
   use_dontcare: False
   bbox2d_type: 'anno'  # 'proj' or 'anno'
   meanshape: False  # use predefined anchor or not
-  writelist: ['Car']
+  class_names: &class_names [
+      'AlarmClock', 'Apple', 'ArmChair', 'BaseballBat', 'BasketBall', 'Bathtub', 'BathtubBasin', 'Bed', 'Book',
+      'Boots', 'Bottle', 'Bowl', 'Box', 'Bread', 'ButterKnife', 'Cabinet', 'Candle', 'CellPhone', 'Chair',
+      'Cloth', 'CoffeeMachine', 'CoffeeTable', 'CreditCard', 'Cup', 'Desk', 'DeskLamp', 'Desktop', 'DiningTable',
+      'DishSponge', 'DogBed', 'Drawer', 'Dresser', 'Dumbbell', 'Egg', 'Faucet', 'FloorLamp', 'Footstool', 'Fork',
+      'Fridge', 'GarbageBag', 'GarbageCan', 'HandTowel', 'HandTowelHolder', 'HousePlant', 'Kettle', 'KeyChain',
+      'Knife', 'Ladle', 'Laptop', 'LaundryHamper', 'Lettuce', 'Microwave', 'Mirror', 'Mug', 'Newspaper',
+      'Ottoman', 'Painting', 'Pan', 'PaperTowelRoll', 'Pen', 'Pencil', 'PepperShaker', 'Pillow', 'Plate',
+      'Plunger', 'Poster', 'Pot', 'Potato', 'RemoteControl', 'RoomDecor', 'Safe', 'SaltShaker', 'ScrubBrush',
+      'Shelf', 'ShelvingUnit', 'ShowerCurtain', 'ShowerDoor', 'ShowerGlass', 'ShowerHead', 'SideTable', 'Sink',
+      'SinkBasin', 'SoapBar', 'SoapBottle', 'Sofa', 'Spatula', 'Spoon', 'SprayBottle', 'Statue', 'Stool',
+      'StoveBurner', 'StoveKnob', 'TVStand', 'TableTopDecor', 'TeddyBear', 'Television', 'TennisRacket',
+      'TissueBox', 'Toaster', 'Toilet', 'ToiletPaper', 'ToiletPaperHanger', 'Tomato', 'Towel', 'TowelHolder',
+      'Vase', 'Watch', 'WateringCan', 'WineBottle'
+    ]
+  # 'writelist' should match class_names unless you specifically want the loader to ignore some classes found in files
+  writelist: *class_names
   clip_2d: False
+  input_resolution: [1280, 384]
+  output_downsample: 4 
 
   aug_pd: True
   aug_crop: True
@@ -27,13 +45,13 @@ dataset:
 
 model_name: 'monodinodetr'
 model:
-  num_classes: 4
+  num_classes: 109
   return_intermediate_dec: True
   device: 'cuda'
 
   # Backbone
   backbone: 'vitl'          # resnet50, dla34, dla60, vits, vitb tested
-  train_backbone: True
+  train_backbone: False
   num_feature_levels: 3
   dilation: False
   position_embedding: 'sine'  # 'sine' or 'learned'
@@ -45,7 +63,7 @@ model:
   mode: LID
   num_depth_bins: 80      # 80
   depth_min: 1e-3
-  depth_max: 60.0        # 60.0
+  depth_max: 10.0        # 60.0
 
   # Transformer
   with_box_refine: True
@@ -53,11 +71,11 @@ model:
   use_dab: True
   use_dn: False
   two_stage_dino: False
-  init_box: False
-  enc_layers: 3
-  dec_layers: 3
+  init_box: True # False 
+  enc_layers: 3 # 3
+  dec_layers: 3 # 3
   hidden_dim: 256
-  dim_feedforward: 256
+  dim_feedforward: 256 # 2048 # 256
   dropout: 0.1
   nheads: 8
   num_queries: 50
@@ -107,14 +125,15 @@ lr_scheduler:
 
 trainer:
   max_epoch: 195
-  gpu_ids: '0,1,2,3'
+  gpu_ids: '0,1,2,3,4,5,6,7'
   save_frequency: 1  # checkpoint save interval (in epoch)
+  batch_size_per_gpu: 4 # H200 has 128GB, should handle this with DN disabled
   # resume_model: True
   # pretrain_model: path/to/ckpt
-  save_path: 'outputs/'
+  save_path: 'outputs/monodinodetr_nov_5_run3/'
   save_all: False  # False for only savng the best and latest ckpts
   use_dn: False
-  scalar: 1
+  scalar: 1 # 5 # 1 
   label_noise_scale: 0.2
   box_noise_scale: 0.4
   num_patterns: 0
@@ -123,7 +142,7 @@ trainer:
 tester:
   type: *dataset_type
   mode: single  # 'single' or 'all'; 'all' to evaluate all ckpts in the folder
-  checkpoint: 195  # the start ckpt epoch for 'all'
+  checkpoint: 'best'  # the start ckpt epoch for 'all'
   threshold: 0.2  # confidence filter
   topk: 50
   use_dn: False

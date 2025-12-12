@@ -31,16 +31,10 @@ from typing import Tuple, Optional
 
 import torch
 from torch import Tensor
-# PyTorch 2.0+ removed _LinearWithBias and NonDynamicallyQuantizableLinear
-# Use nn.Linear directly as it's compatible across versions
-try:
+if float(torch.__version__.split('.')[0]) == 0 or (float(torch.__version__.split('.')[0]) == 1 and float(torch.__version__.split('.')[1])) < 9:
     from torch.nn.modules.linear import _LinearWithBias
-except ImportError:
-    try:
-        from torch.nn.modules.linear import NonDynamicallyQuantizableLinear as _LinearWithBias
-    except ImportError:
-        # For PyTorch 2.0+, use nn.Linear directly
-        _LinearWithBias = torch.nn.Linear
+else:
+    from torch.nn.modules.linear import NonDynamicallyQuantizableLinear as _LinearWithBias
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import constant_
 from torch.nn.init import xavier_normal_
@@ -58,16 +52,10 @@ from torch.nn.modules.utils import _single, _pair, _triple, _list_with_default
 from torch.nn import grad
 from torch import _VF
 from torch._jit_internal import boolean_dispatch, List, Optional, _overload, Tuple
-# PyTorch moved has_torch_function and handle_torch_function
-try:
+if float(torch.__version__.split('.')[0]) == 0 or (float(torch.__version__.split('.')[0]) == 1 and float(torch.__version__.split('.')[1])) < 7:
+    from torch._overrides import has_torch_function, handle_torch_function
+else:
     from torch.overrides import has_torch_function, handle_torch_function
-except ImportError:
-    try:
-        from torch._overrides import has_torch_function, handle_torch_function
-    except ImportError:
-        # Fallback for very old versions or if not available
-        has_torch_function = lambda x: False
-        handle_torch_function = None
 Tensor = torch.Tensor
 
 from torch.nn.functional import linear, pad, softmax, dropout

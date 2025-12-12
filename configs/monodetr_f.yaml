@@ -2,7 +2,7 @@ random_seed: 444
 
 dataset:
   type: &dataset_type 'KITTI'
-  root_dir: '/home/hice1/rrustagi7/scratch/ai2_kitti'  # change this path to your own dataset path
+  root_dir: '/home/hice1/rrustagi7/scratch/final_ai2_kitti'  # updated to final_ai2_kitti
   train_split: 'train'
   test_split: 'val'
   batch_size: 8
@@ -11,8 +11,27 @@ dataset:
   use_dontcare: False
   bbox2d_type: 'anno'  # 'proj' or 'anno'
   meanshape: False  # use predefined anchor or not
-  writelist: ['Car']
+  # List of all classes found in the dataset (used by AI2THOR loader)
+  class_names: &class_names ['Bed', 'Cabinet', 'Chair', 'Desk', 'DiningTable', 'Drawer', 'Shelf', 'SideTable', 'Sink', 'SinkBasin', 'Sofa']
+  # By default use the full class_names as the writelist (loader will process these types)
+  writelist: *class_names
   clip_2d: False
+  class_mean_sizes:
+      Bed: [1.083155, 1.684365, 1.924093]
+      Cabinet: [0.666354, 0.409959, 0.416964]
+      Chair: [0.959852, 0.590336, 0.601609]
+      Desk: [1.002056, 1.192161, 1.249042]
+      DiningTable: [0.813822, 1.124908, 1.138764]
+      Drawer: [0.213219, 0.460087, 0.483194]
+      Shelf: [0.269391, 0.729941, 0.493001]
+      SideTable: [0.789589, 0.679653, 0.605090]
+      Sink: [0.316153, 0.602649, 0.614178]
+      SinkBasin: [0.139482, 0.458383, 0.420819]
+      Sofa: [1.025742, 1.942374, 1.606155]
+
+  # Model / loader resolution settings (required by the AI2THOR KITTI loader)
+  input_resolution: [1280, 384]
+  output_downsample: 4
 
   aug_pd: True
   aug_crop: True
@@ -27,13 +46,13 @@ dataset:
 
 model_name: 'monodinodetr'
 model:
-  num_classes: 4
+  num_classes: 11   # updated to number of classes in final_ai2_kitti
   return_intermediate_dec: True
   device: 'cuda'
 
   # Backbone
-  backbone: 'vitl'          # resnet50, dla34, dla60, vits, vitb tested
-  train_backbone: True
+  backbone: 'vits'          # resnet50, dla34, dla60, vits, vitb tested
+  train_backbone: False
   num_feature_levels: 3
   dilation: False
   position_embedding: 'sine'  # 'sine' or 'learned'
@@ -41,11 +60,11 @@ model:
 
   # Depth predictor
   depth_predict_with_anything: True
-  depth_predict_encoder: 'vitl'
+  depth_predict_encoder: 'vits'
   mode: LID
   num_depth_bins: 80      # 80
   depth_min: 1e-3
-  depth_max: 60.0        # 60.0
+  depth_max: 15.0        # 60.0
 
   # Transformer
   with_box_refine: True
@@ -109,7 +128,8 @@ trainer:
   max_epoch: 195
   gpu_ids: '0,1,2,3'
   save_frequency: 1  # checkpoint save interval (in epoch)
-  # resume_model: True
+  batch_size_per_gpu: 8
+  resume_model: True
   # pretrain_model: path/to/ckpt
   save_path: 'outputs/'
   save_all: False  # False for only savng the best and latest ckpts

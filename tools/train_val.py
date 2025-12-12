@@ -127,6 +127,16 @@ def main(args):
 
     tb_log = SummaryWriter(log_dir=str(output_path + '/tensorboard')) if cfg.local_rank == 0 else None
 
+
+    if not cfg.model.train_backbone:
+        for name, param in model.named_parameters():
+            # print(name, param.shape)
+            if 'backbone' in name:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
+
+
     model.train()
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[cfg.local_rank % torch.cuda.device_count()], find_unused_parameters=True)

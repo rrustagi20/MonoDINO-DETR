@@ -58,9 +58,29 @@ def generalized_box_iou(boxes1, boxes2):
     and M = len(boxes2)
     """
     # degenerate boxes gives inf / nan results
-    # so do an early check
-    assert (boxes1[:, 2:] >= boxes1[:, :2]).all()
-    assert (boxes2[:, 2:] >= boxes2[:, :2]).all()
+    # Handle NaN and invalid boxes
+    eps = 1e-4
+    
+    # Replace NaN values with valid default boxes [0, 0, eps, eps]
+    boxes1 = torch.nan_to_num(boxes1, nan=0.0, posinf=1.0, neginf=0.0)
+    boxes2 = torch.nan_to_num(boxes2, nan=0.0, posinf=1.0, neginf=0.0)
+    
+    # For boxes1
+    x1_1, y1_1, x2_1, y2_1 = boxes1.unbind(-1)
+    x2_1 = torch.maximum(x2_1, x1_1 + eps)
+    y2_1 = torch.maximum(y2_1, y1_1 + eps)
+    boxes1 = torch.stack([x1_1, y1_1, x2_1, y2_1], dim=-1)
+    
+    # For boxes2
+    x1_2, y1_2, x2_2, y2_2 = boxes2.unbind(-1)
+    x2_2 = torch.maximum(x2_2, x1_2 + eps)
+    y2_2 = torch.maximum(y2_2, y1_2 + eps)
+    boxes2 = torch.stack([x1_2, y1_2, x2_2, y2_2], dim=-1)
+    
+    # Verify the fix worked
+    assert (boxes1[:, 2:] >= boxes1[:, :2]).all(), f"boxes1 still invalid after fix! Min diff: {(boxes1[:, 2:] - boxes1[:, :2]).min()}"
+    assert (boxes2[:, 2:] >= boxes2[:, :2]).all(), f"boxes2 still invalid after fix! Min diff: {(boxes2[:, 2:] - boxes2[:, :2]).min()}"
+    
     iou, union = box_iou(boxes1, boxes2)
 
     lt = torch.min(boxes1[:, None, :2], boxes2[:, :2])

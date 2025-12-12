@@ -84,6 +84,10 @@ class HungarianMatcher(nn.Module):
 
         # Final cost matrix
         C = self.cost_bbox * cost_bbox + self.cost_3dcenter * cost_3dcenter + self.cost_class * cost_class + self.cost_giou * cost_giou
+        
+        # Handle NaN/Inf in cost matrix (can happen with numerical instability early in training)
+        C = torch.nan_to_num(C, nan=1e6, posinf=1e6, neginf=-1e6)  # Replace NaN/Inf with large costs
+        
         C = C.view(bs, num_queries, -1).cpu()
 
         sizes = [len(v["boxes"]) for v in targets]

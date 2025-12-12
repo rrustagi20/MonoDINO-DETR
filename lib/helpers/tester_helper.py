@@ -81,7 +81,7 @@ class Tester(object):
             # load evaluation data and move data to GPU.
             inputs = inputs.to(self.device)
             calibs = calibs.to(self.device)
-            img_sizes = info['img_size'].to(self.device)
+            img_sizes = targets['img_size'].to(self.device)
 
             start_time = time.time()
             ###dn

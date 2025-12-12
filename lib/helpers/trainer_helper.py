@@ -79,7 +79,9 @@ class Trainer(object):
             # # ref: https://github.com/pytorch/pytorch/issues/5059
             # np.random.seed(np.random.get_state()[1][0] + epoch)
 
-            self.train_loader.sampler.set_epoch(epoch)
+            # Only set epoch for DistributedSampler (not for RandomSampler)
+            if hasattr(self.train_loader.sampler, 'set_epoch'):
+                self.train_loader.sampler.set_epoch(epoch)
             # train one epoch
             self.train_one_epoch(epoch, rank=self.rank, tb_log=self.tb_log)
             self.epoch += 1
@@ -110,6 +112,11 @@ class Trainer(object):
 
                     if self.rank == 0:
                         cur_result = self.tester.evaluate()
+                        
+                        # Log validation result to TensorBoard
+                        if self.tb_log is not None:
+                            self.tb_log.add_scalar('val/result', cur_result, self.epoch)
+                        
                         if cur_result > best_result:
                             best_result = cur_result
                             best_epoch = self.epoch
@@ -118,6 +125,10 @@ class Trainer(object):
                                 get_checkpoint_state(self.model, self.optimizer, self.epoch, best_result, best_epoch),
                                 ckpt_name)
                         self.logger.info("Best Result:{}, epoch:{}".format(best_result, best_epoch))
+                        
+                        # Log best result to TensorBoard
+                        if self.tb_log is not None:
+                            self.tb_log.add_scalar('val/best_result', best_result, self.epoch)
             if self.rank == 0:
                 progress_bar.update()
         
@@ -139,6 +150,11 @@ class Trainer(object):
             #     print(f'{name}: {param.requires_grad}')
             print(">>>>>>> Epoch:", str(epoch) + ":")
             progress_bar = tqdm.tqdm(total=len(self.train_loader), leave=(self.epoch+1 == self.cfg['max_epoch']), desc='iters')
+        
+        # Track epoch-level metrics
+        epoch_losses = {}
+        num_batches = 0
+        
         for batch_idx, (inputs, calibs, targets, info) in enumerate(self.train_loader):
             inputs = inputs.to(self.device)
             calibs = calibs.to(self.device)
@@ -163,15 +179,36 @@ class Trainer(object):
 
 
             self.optimizer.zero_grad()
-            if self.cfg["use_dn"]:
-                outputs, mask_dict = self.model(inputs, calibs, targets, img_sizes, dn_args=dn_args)
-            else:
-                outputs = self.model(inputs, calibs, targets, img_sizes, dn_args=dn_args)
-                mask_dict=None
-            # outputs = self.model(inputs, calibs, targets, img_sizes, dn_args=dn_args)
-            # mask_dict=None
-            #ipdb.set_trace()
-            detr_losses_dict = self.detr_loss(outputs, targets, mask_dict)
+            
+            # Try-except to handle corrupted data or invalid boxes
+            try:
+                if self.cfg["use_dn"]:
+                    outputs, mask_dict = self.model(inputs, calibs, targets, img_sizes, dn_args=dn_args)
+                else:
+                    outputs = self.model(inputs, calibs, targets, img_sizes, dn_args=dn_args)
+                    mask_dict=None
+                
+                # Check for NaN in model outputs
+                for key, val in outputs.items():
+                    if isinstance(val, torch.Tensor) and torch.isnan(val).any():
+                        print(f"\nWARNING: NaN detected in model output '{key}' at batch {batch_idx}")
+                        print(f"  NaN count: {torch.isnan(val).sum().item()} / {val.numel()}")
+                        raise ValueError(f"NaN in model outputs: {key}")
+                
+                detr_losses_dict = self.detr_loss(outputs, targets, mask_dict)
+            except (AssertionError, RuntimeError, ValueError) as e:
+                import traceback
+                print(f"\n{'='*80}")
+                print(f"ERROR in batch {batch_idx}:")
+                print(f"Error type: {type(e).__name__}")
+                print(f"Error message: {str(e)}")
+                print(f"Image IDs in this batch: {info['img_id'] if 'img_id' in info else 'N/A'}")
+                print(f"Traceback:")
+                traceback.print_exc()
+                print(f"{'='*80}")
+                if rank == 0:
+                    progress_bar.update()
+                continue
 
             weight_dict = self.detr_loss.weight_dict
             detr_losses_dict_weighted = [detr_losses_dict[k] * weight_dict[k] for k in detr_losses_dict.keys() if k in weight_dict]
@@ -201,19 +238,54 @@ class Trainer(object):
                 print("")
                 print("")
 
+            # Check if loss is NaN before backward
+            if torch.isnan(detr_losses):
+                print(f"\nWARNING: Loss is NaN at batch {batch_idx}, skipping this batch")
+                if rank == 0:
+                    progress_bar.update()
+                continue
+            
             detr_losses.backward()
+            
+            # Gradient clipping to prevent explosion and NaN values
+            # Very aggressive clipping for 109-class training from scratch
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.5)
+            
+            # Check for NaN in gradients
+            if torch.isnan(grad_norm):
+                print(f"\nWARNING: NaN gradient norm at batch {batch_idx}, skipping optimizer step")
+                self.optimizer.zero_grad()
+                if rank == 0:
+                    progress_bar.update()
+                continue
+            
             self.optimizer.step()
+            
+            # Accumulate losses for epoch average
+            num_batches += 1
+            for key, val in detr_losses_dict_log.items():
+                if key not in epoch_losses:
+                    epoch_losses[key] = 0.0
+                epoch_losses[key] += val
 
             if rank == 0:
                 progress_bar.update()
                 if tb_log is not None:
                     tb_log.add_scalar('train/loss', detr_losses.item(), epoch * len(self.train_loader) + batch_idx)
-                    tb_log.add_scalar('meta_dat/lr', cur_lr, epoch * len(self.train_loader) + batch_idx)
-                    for key, val in detr_losses_dict.items():
-                        tb_log.add_scalar('train/' + key, val.item(), epoch * len(self.train_loader) + batch_idx)
-                        
+                    tb_log.add_scalar('meta_data/lr', cur_lr, epoch * len(self.train_loader) + batch_idx)
+                    tb_log.add_scalar('meta_data/grad_norm', grad_norm.item(), epoch * len(self.train_loader) + batch_idx)
+                    for key, val in detr_losses_dict_log.items():
+                        tb_log.add_scalar('train_iter/' + key, val, epoch * len(self.train_loader) + batch_idx)
+        
+        # Log epoch-level average losses
         if rank == 0:
             progress_bar.close()
+            if tb_log is not None and num_batches > 0:
+                for key, val in epoch_losses.items():
+                    avg_loss = val / num_batches
+                    tb_log.add_scalar('train_epoch/' + key, avg_loss, epoch)
+                if num_batches < len(self.train_loader):
+                    self.logger.info(f"Note: {len(self.train_loader) - num_batches} batches were skipped due to errors")
 
     def prepare_targets(self, targets, batch_size):
         targets_list = []

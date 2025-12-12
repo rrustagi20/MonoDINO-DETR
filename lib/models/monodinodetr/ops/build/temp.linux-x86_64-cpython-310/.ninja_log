@@ -1,0 +1,4 @@
+# ninja log v5
+1	13870	1761328392182392000	/home/hice1/rrustagi7/glen/MonoDINO-DETR/lib/models/monodinodetr/ops/build/temp.linux-x86_64-cpython-310/home/hice1/rrustagi7/glen/MonoDINO-DETR/lib/models/monodinodetr/ops/src/cpu/ms_deform_attn_cpu.o	ec9bc543fab70fcd
+13874	47976	1761328426288403000	/home/hice1/rrustagi7/glen/MonoDINO-DETR/lib/models/monodinodetr/ops/build/temp.linux-x86_64-cpython-310/home/hice1/rrustagi7/glen/MonoDINO-DETR/lib/models/monodinodetr/ops/src/vision.o	afeca35979686929
+1	79804	1761328458107437000	/home/hice1/rrustagi7/glen/MonoDINO-DETR/lib/models/monodinodetr/ops/build/temp.linux-x86_64-cpython-310/home/hice1/rrustagi7/glen/MonoDINO-DETR/lib/models/monodinodetr/ops/src/cuda/ms_deform_attn_cuda.o	d3f356dfc07009ad

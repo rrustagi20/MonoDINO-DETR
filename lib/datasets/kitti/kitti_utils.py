@@ -388,7 +388,8 @@ def affine_transform(pt, t):
 
 
 if __name__ == '__main__':
-    from lib.datasets.kitti.kitti_dataset import KITTI_Dataset
+    # from lib.datasets.kitti.kitti_dataset import KITTI_Dataset
+    from lib.datasets.kitti.ai2_kitti_dataset import AI2THOR_KITTI_Dataset as KITTI_Dataset
     cfg = {'root_dir': '../../../data'}
     dataset = KITTI_Dataset('train', cfg)
 
